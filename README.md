@@ -6,18 +6,18 @@
 ![Architecture](https://img.shields.io/badge/Architecture-Cyclone%20II%20EP2C70-e05d44?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)
 
-An ultra-lightweight, hardware-accelerated Edge-AI co-processor implemented on the **Altera DE2-70 (Cyclone II)** FPGA platform. Featuring a custom **2-stage pipelined Multiply-Accumulate (MAC) execution engine**, M4K-based weight ROM buffers, and a real-time **Bluetooth/UART wireless interface** to offload neural network inference from mobile devices.
+An ultra-lightweight, hardware-accelerated Edge-AI co-processor implemented on the **Altera DE2-70 (Cyclone II)** FPGA platform. Featuring a custom **2-stage pipelined Multiply-Accumulate (MAC) execution engine**, M4K-based weight ROM buffers, and a real-time **Bluetooth/UART wireless interface** to offload neural network inference from mobile devices for real-time agricultural crop health monitoring.
 
 ---
 
 ## 💡 Executive Summary & Non-Technical Overview
 
-Modern mobile applications rely heavily on Artificial Intelligence (AI) for real-time tasks like image recognition, sensor diagnostics, and predictive data processing. Running these heavy mathematical models directly on a smartphone processor drains the battery quickly and generates significant heat.
+Modern agricultural field diagnostics rely heavily on smart, rapid decision-making. Running heavy machine learning models directly on remote field devices or mobile phones drains battery quickly and lacks local efficiency.
 
-This project introduces a **dedicated external hardware co-processor**:
-1. **Offloaded Computation:** The smartphone captures sensor data and transmits raw features wirelessly via Bluetooth.
-2. **Hardware Acceleration:** The FPGA board receives the data, processes neural network math using dedicated physical logic gates (MAC units), and calculates predictions in microseconds.
-3. **Low-Power Intelligence:** The result is returned to the mobile app instantly, drastically reducing phone power consumption and preserving CPU bandwidth for the user interface.
+This project introduces a **dedicated external hardware co-processor for crop health classification (Potato Leaf: Healthy vs. Diseased)**:
+1. **Offloaded Computation:** The smartphone captures a crop leaf image, resizes it, and transmits raw features wirelessly via Bluetooth.
+2. **Hardware Acceleration:** The Altera DE2-70 FPGA board receives the data, processes neural network math using dedicated physical logic gates (MAC units), and calculates health scores in microseconds.
+3. **Low-Power Intelligence:** A binary classification result (`Healthy` vs. `Diseased`) is returned to the mobile app instantly, enabling zero-internet, battery-efficient field diagnostics.
 
 ---
 
@@ -53,7 +53,7 @@ If you are new to FPGA hardware acceleration or deep learning hardware, here is 
 * **Synthesis & Compilation:** Intel / Altera Quartus II v13.0sp1 Web Edition
 * **HDL Simulation:** ModelSim-Altera Starter / Edition
 * **HDL Source Code Editor:** VS Code with Verilog HDL / SystemVerilog extension
-* **Machine Learning & Export Toolchain:** Python 3.8+ (PyTorch, NumPy, SciPy)
+* **Dataset & Training Toolchain:** Python 3.8+ (PyTorch, NumPy, PlantVillage Dataset)
 
 ---
 
@@ -113,7 +113,7 @@ The Bluetooth bridge communicates with the DE2-70 using 3.3V LVTTL logic via the
 | **Control Logic Lead** | Member 2 | `rtl/control/` | Top-level execution FSM, timing state management, and control flags |
 | **Memory Architecture Lead** | Member 3 | `rtl/memory/` | M4K RAM/ROM wrappers, address generator unit, and `.mif` loading |
 | **Communication Interface Lead** | Member 4 | `rtl/interface/` | UART receiver/transmitter modules, baud rate generator, and packet parsing |
-| **ML & Quantization Lead** | Member 5 | `models/` | Model training, INT8 post-training quantization, and `.mif` export scripts |
+| **ML & Quantization Lead** | Member 5 | `models/` | PlantVillage dataset model training, binary classification, INT8 quantization, and `.mif` export scripts |
 | **Verification & Testing Lead** | Member 6 | `tb/` | ModelSim unit/system testbenches, timing checks, and functional verification |
 | **Systems & Mobile App Lead** | Member 7 | `app/`, `fpga/` | Host mobile app UI, Bluetooth firmware bridge, and `.qsf` pin assignments |
 
@@ -138,7 +138,7 @@ edge-ai-coprocessor/
 ├── models/            # Model training, quantization, and MIF generation
 │   ├── export/        # Quantized INT8 weights & generated .mif files
 │   ├── quantization/  # Post-training quantization scripts
-│   └── training/      # PyTorch/TensorFlow training code
+│   └── training/      # PyTorch/TensorFlow training code (PlantVillage dataset)
 ├── rtl/               # Hardware Description Language (Verilog) source
 │   ├── control/       # Main execution FSM logic
 │   ├── core/          # 2-Stage MAC datapath
