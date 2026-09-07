@@ -109,11 +109,13 @@ The Bluetooth bridge communicates with the DE2-70 using 3.3V LVTTL logic via the
 
 | Role | Primary Lead | Subsystem Directory | Core Responsibilities |
 | :--- | :--- | :--- | :--- |
-| **RTL Core Lead** | Member 1 | `rtl/core/` | 2-Stage pipelined MAC datapath, ALU logic, and registers |
-| **Control & Memory Lead**| Member 2 | `rtl/control/`, `rtl/memory/` | FSM controller, address generator, and M4K RAM `.mif` loading |
-| **Interface Lead** | Member 3 | `rtl/interface/` | UART receiver/transmitter modules and packet parsing FSM |
-| **Verification Lead** | Member 4 | `tb/` | ModelSim testbench creation, unit testing, and timing checks |
-| **Systems & App Lead** | Member 5 | `app/`, `fpga/` | Mobile client app UI, Bluetooth driver, pin mapping constraints |
+| **RTL Core Lead** | Member 1 | `rtl/core/` | 2-Stage pipelined MAC datapath, ALU registers, and arithmetic unit |
+| **Control Logic Lead** | Member 2 | `rtl/control/` | Top-level execution FSM, timing state management, and control flags |
+| **Memory Architecture Lead** | Member 3 | `rtl/memory/` | M4K RAM/ROM wrappers, address generator unit, and `.mif` loading |
+| **Communication Interface Lead** | Member 4 | `rtl/interface/` | UART receiver/transmitter modules, baud rate generator, and packet parsing |
+| **ML & Quantization Lead** | Member 5 | `models/` | Model training, INT8 post-training quantization, and `.mif` export scripts |
+| **Verification & Testing Lead** | Member 6 | `tb/` | ModelSim unit/system testbenches, timing checks, and functional verification |
+| **Systems & Mobile App Lead** | Member 7 | `app/`, `fpga/` | Host mobile app UI, Bluetooth firmware bridge, and `.qsf` pin assignments |
 
 ---
 
@@ -126,7 +128,7 @@ edge-ai-coprocessor/
 │   └── firmware/      # ESP32/HC-05 Bluetooth pass-through code
 ├── docs/              # Visual diagrams, specifications, and reports
 │   ├── architecture/  # Microarchitecture specifications
-│   ├── assets/        # Visual PNG diagrams and documentation assets
+│   ├── assets/        # Documentation PNG diagrams
 │   ├── protocols/     # Frame protocols & memory mapping
 │   └── reports/       # Synthesis and timing verification reports
 ├── fpga/              # Quartus II workspace and constraint files
