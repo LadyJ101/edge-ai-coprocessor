@@ -4,28 +4,66 @@
 ![Quartus II](https://img.shields.io/badge/Quartus%20II-v13.0sp1-d96414?style=flat-square)
 ![ModelSim](https://img.shields.io/badge/ModelSim-Altera%20Edition-44cc11?style=flat-square)
 ![Architecture](https://img.shields.io/badge/Architecture-Cyclone%20II%20EP2C70-e05d44?style=flat-square)
+![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)
 
-An ultra-lightweight, hardware-accelerated Edge-AI co-processor implemented on the **Altera DE2-70 (Cyclone II)** platform. Featuring a custom **2-stage pipelined MAC execution engine**, M4K-based weight ROM buffers, and a real-time **Bluetooth/UART interface** to offload neural network inference from mobile devices.
+An ultra-lightweight, hardware-accelerated Edge-AI co-processor implemented on the **Altera DE2-70 (Cyclone II)** FPGA platform. Featuring a custom **2-stage pipelined Multiply-Accumulate (MAC) execution engine**, M4K-based weight ROM buffers, and a real-time **Bluetooth/UART wireless interface** to offload neural network inference from mobile devices.
+
+---
+
+## 💡 Executive Summary & Non-Technical Overview
+
+Modern mobile applications rely heavily on Artificial Intelligence (AI) for real-time tasks like image recognition, sensor diagnostics, and predictive data processing. Running these heavy mathematical models directly on a smartphone processor drains the battery quickly and generates significant heat.
+
+This project introduces a **dedicated external hardware co-processor**:
+1. **Offloaded Computation:** The smartphone captures sensor data and transmits raw features wirelessly via Bluetooth.
+2. **Hardware Acceleration:** The FPGA board receives the data, processes neural network math using dedicated physical logic gates (MAC units), and calculates predictions in microseconds.
+3. **Low-Power Intelligence:** The result is returned to the mobile app instantly, drastically reducing phone power consumption and preserving CPU bandwidth for the user interface.
+
+---
+
+## 🎯 Key System Features
+
+* **Custom Hardware Datapath:** 2-stage execution pipeline operating zero-stall matrix operations at 50 MHz.
+* **INT8 Quantized Arithmetic:** Reduces memory overhead by 75% compared to standard 32-bit floating-point math while maintaining target model accuracy.
+* **Seamless Mobile Offloading:** Wireless Bluetooth bridge (HC-05 / ESP32) operating via 3.3V LVTTL UART.
+* **On-Chip Memory Integration:** Pre-loaded neural network weights mapped directly into Cyclone II embedded M4K memory blocks using `.mif` (Memory Initialization Files).
+* **Comprehensive Verification Suite:** Complete hardware simulation testbenches written for ModelSim alongside Quartus II hardware compilation scripts.
 
 ---
 
 ## 💡 Beginner's High-Level Concept Guide
 
-If you are new to FPGA hardware acceleration or deep learning hardware, here is how this system works in simple terms:
+If you are new to FPGA hardware acceleration or deep learning hardware, here is how the core concepts work:
 
-* **What is an Edge-AI Accelerator?** Instead of running heavy neural network computations on a phone CPU (which drains battery and heats up the phone), the phone sends raw input data to our FPGA board. The FPGA computes the AI predictions in dedicated silicon hardware and sends the answer back.
-* **What is a 2-Stage Pipeline?** Think of an assembly line. While **Stage 2** is calculating the current math operation (Multiply-Accumulate), **Stage 1** is already pre-fetching the next set of numbers from memory. This allows the system to compute one operation per clock cycle without waiting.
-* **What is INT8 Quantization?** Standard AI models use 32-bit floating-point decimal numbers. We compress these weights into 8-bit integers (`-128` to `+127`). This drastically reduces FPGA memory usage and allows simple integer math hardware.
+* **What is an FPGA?** A Field-Programmable Gate Array (FPGA) is a microchip containing thousands of configurable logic blocks. Unlike a fixed phone or computer CPU, we can reconfigure the hardware circuits on the FPGA to build specialized computing engines.
+* **What is a 2-Stage Pipeline?** Think of an assembly line. While **Stage 2** is calculating the current math operation (Multiply-Accumulate), **Stage 1** is already pre-fetching the next set of numbers from memory. This allows the system to process one calculation every single clock cycle without stopping.
+* **What is INT8 Quantization?** Standard AI models use 32-bit floating-point decimal numbers. We compress these weights into signed 8-bit integers (`-128` to `+127`). This minimizes hardware complexity and memory footprints without significant accuracy loss.
+
+---
+
+## 🛠 System Prerequisites & Environment Setup
+
+### Required Hardware
+* **FPGA Development Board:** Altera DE2-70 (EP2C70F896C6)
+* **Programmer Cable:** USB-Blaster download cable
+* **Wireless Transceiver:** HC-05 Bluetooth Module or ESP32 microcontroller board
+* **Host Device:** Android/iOS smartphone or Bluetooth-enabled host terminal
+
+### Required Software & Toolchain
+* **Synthesis & Compilation:** Intel / Altera Quartus II v13.0sp1 Web Edition
+* **HDL Simulation:** ModelSim-Altera Starter / Edition
+* **HDL Source Code Editor:** VS Code with Verilog HDL / SystemVerilog extension
+* **Machine Learning & Export Toolchain:** Python 3.8+ (PyTorch, NumPy, SciPy)
 
 ---
 
 ## 📌 System Hardware Specifications
 
-* **Target Hardware:** Altera DE2-70 Development Board (EP2C70F896C6)
+* **Target Hardware:** Altera DE2-70 Development Board (Cyclone II EP2C70)
 * **Design Environment:** Intel Quartus II 13.0sp1 & ModelSim-Altera Edition
 * **Data Format:** Signed 8-bit Integer (INT8)
 * **Clock Frequency:** 50 MHz On-board Oscillator (`CLOCK_50`)
-* **Communication Interface:** UART over HC-05 / ESP32 Bluetooth Bridge (115200 Baud)
+* **Communication Interface:** UART over HC-05 / ESP32 Bluetooth Bridge (115200 Baud, 8N1)
 
 ![System Architecture](docs/assets/system-architecture.png)
 
@@ -81,8 +119,6 @@ The Bluetooth bridge communicates with the DE2-70 using 3.3V LVTTL logic via the
 
 ## 📁 Repository Directory Structure
 
-![Repository Structure](docs/assets/repo-structure.png)
-
 ```text
 edge-ai-coprocessor/
 ├── app/               # Host mobile application and firmware
@@ -90,7 +126,7 @@ edge-ai-coprocessor/
 │   └── firmware/      # ESP32/HC-05 Bluetooth pass-through code
 ├── docs/              # Visual diagrams, specifications, and reports
 │   ├── architecture/  # Microarchitecture specifications
-│   ├── assets/        # Documentation PNG diagrams
+│   ├── assets/        # Visual PNG diagrams and documentation assets
 │   ├── protocols/     # Frame protocols & memory mapping
 │   └── reports/       # Synthesis and timing verification reports
 ├── fpga/              # Quartus II workspace and constraint files
