@@ -109,13 +109,13 @@ The Bluetooth bridge communicates with the DE2-70 using 3.3V LVTTL logic via the
 
 | Role | Primary Lead | Subsystem Directory | Core Responsibilities |
 | :--- | :--- | :--- | :--- |
-| **RTL Core Lead** | Member 1 | `rtl/core/` | 2-Stage pipelined MAC datapath, ALU registers, and arithmetic unit |
+| **RTL Core Lead** | Bankole Victor | `rtl/core/` | 2-Stage pipelined MAC datapath, ALU registers, and arithmetic unit |
 | **Control Logic Lead** | Member 2 | `rtl/control/` | Top-level execution FSM, timing state management, and control flags |
 | **Memory Architecture Lead** | Member 3 | `rtl/memory/` | M4K RAM/ROM wrappers, address generator unit, and `.mif` loading |
 | **Communication Interface Lead** | Member 4 | `rtl/interface/` | UART receiver/transmitter modules, baud rate generator, and packet parsing |
-| **ML & Quantization Lead** | Member 5 | `models/` | PlantVillage dataset model training, binary classification, INT8 quantization, and `.mif` export scripts |
-| **Verification & Testing Lead** | Member 6 | `tb/` | ModelSim unit/system testbenches, timing checks, and functional verification |
-| **Systems & Mobile App Lead** | Member 7 | `app/`, `fpga/` | Host mobile app UI, Bluetooth firmware bridge, and `.qsf` pin assignments |
+| **ML & Quantization Lead** | Oluwadamilola Abioye | `models/` | PlantVillage dataset model training, binary classification, INT8 quantization, and `.mif` export scripts |
+| **Verification & Testing Lead** | Abiola Ademola | `tb/` | ModelSim unit/system testbenches, timing checks, and functional verification |
+| **Systems & Mobile App Lead** | Simeon | `app/`, `fpga/` | Host mobile app UI, Bluetooth firmware bridge, and `.qsf` pin assignments |
 
 ---
 
