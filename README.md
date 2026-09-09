@@ -110,7 +110,7 @@ The Bluetooth bridge communicates with the DE2-70 using 3.3V LVTTL logic via the
 | Role | Primary Lead | Subsystem Directory | Core Responsibilities |
 | :--- | :--- | :--- | :--- |
 | **RTL Core Lead** | Bankole Victor | `rtl/core/` | 2-Stage pipelined MAC datapath, ALU registers, and arithmetic unit |
-| **Control Logic Lead** | Member 2 | `rtl/control/` | Top-level execution FSM, timing state management, and control flags |
+| **Control Logic Lead** | Awelewa Abiodun | `rtl/control/` | Top-level execution FSM, timing state management, and control flags |
 | **Memory Architecture Lead** | Member 3 | `rtl/memory/` | M4K RAM/ROM wrappers, address generator unit, and `.mif` loading |
 | **Communication Interface Lead** | Member 4 | `rtl/interface/` | UART receiver/transmitter modules, baud rate generator, and packet parsing |
 | **ML & Quantization Lead** | Oluwadamilola Abioye | `models/` | PlantVillage dataset model training, binary classification, INT8 quantization, and `.mif` export scripts |
