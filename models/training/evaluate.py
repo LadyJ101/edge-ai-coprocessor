@@ -3,79 +3,74 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, random_split
 from torchvision import datasets, transforms
-
-class PotatoBinaryCNN(nn.Module):
-    def __init__(self):
-        super(PotatoBinaryCNN, self).__init__()
-        self.features = nn.Sequential(
-            nn.Conv2d(3, 16, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2, 2),
-            nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2, 2)
-        )
-        self.classifier = nn.Sequential(
-            nn.Flatten(),
-            nn.Linear(32 * 32 * 32, 64),
-            nn.ReLU(),
-            nn.Linear(64, 1)
-        )
-
-    def forward(self, x):
-        return self.classifier(self.features(x))
+from torchvision import models
+from sklearn.metrics import classification_report, confusion_matrix
+import numpy as np
 
 def evaluate_model():
-    # Automatically locate the datasets folder relative to this script's path
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    data_dir = os.path.abspath(os.path.join(script_dir, "datasets/Potato"))
-    model_path = os.path.abspath(os.path.join(script_dir, "../weights/potato_model.pth"))
+    # Exact absolute paths
+    data_dir = r"C:\Users\User\OneDrive\Desktop\edge-ai-coprocessor\models\training\datasets\Potato"
+    model_path = r"C:\Users\User\OneDrive\Desktop\edge-ai-coprocessor\models\weights\potato_model_3class.pth"
 
-    print(f"Looking for dataset at: {data_dir}")
-    print(f"Looking for weights at: {model_path}")
+    if not os.path.exists(data_dir):
+        print(f"Error: Dataset path not found at: {data_dir}")
+        return
+    if not os.path.exists(model_path):
+        print(f"Error: Weights file not found at: {model_path}")
+        return
 
+    # 1. Standard validation transforms
     transform = transforms.Compose([
         transforms.Resize((128, 128)),
         transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ])
-    
-    if not os.path.exists(data_dir):
-        print(f"Error: Dataset folder not found at {data_dir}")
-        return
 
+    # 2. Load dataset (automatically detects 3 classes: diseased_potato, healthy_potato, non_potato)
     dataset = datasets.ImageFolder(root=data_dir, transform=transform)
-    dataset.target_transform = lambda idx: 0 if "healthy" in dataset.classes[idx].lower() else 1
+    class_names = dataset.classes
+    print(f"Detected Classes: {class_names}")
 
-    # Replicate the exact 80/20 train/test split deterministically
+    # 3. Same train/test split seed used during training
     torch.manual_seed(42)
     train_size = int(0.8 * len(dataset))
     test_size = len(dataset) - train_size
     _, test_dataset = random_split(dataset, [train_size, test_size])
-    
     test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
 
-    model = PotatoBinaryCNN()
-    if not os.path.exists(model_path):
-        print(f"Error: Model weights not found at {model_path}")
-        return
-        
-    model.load_state_dict(torch.load(model_path, map_location="cpu"))
+    # 4. Re-initialize MobileNetV2 3-class architecture
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = models.mobilenet_v2(weights=None)
+    model.classifier[1] = nn.Sequential(
+        nn.Dropout(p=0.3, inplace=True),
+        nn.Linear(model.last_channel, len(class_names))
+    )
+
+    # 5. Load the trained weights
+    model.load_state_dict(torch.load(model_path, map_location=device))
+    model = model.to(device)
     model.eval()
 
-    correct = 0
-    total = 0
+    # 6. Run Evaluation
+    all_preds = []
+    all_labels = []
 
-    print("Evaluating model on test dataset...")
+    print("Running evaluation on test/validation split...")
     with torch.no_grad():
-        for images, labels in test_loader:
-            outputs = model(images)
-            preds = (torch.sigmoid(outputs) > 0.5).long().squeeze(1)
-            correct += (preds == labels).sum().item()
-            total += labels.size(0)
+        for inputs, labels in test_loader:
+            inputs, labels = inputs.to(device), labels.to(device)
+            outputs = model(inputs)
+            _, predicted = torch.max(outputs, 1)
 
-    accuracy = 100.0 * correct / total
-    print(f"Evaluation Complete! Test Accuracy: {accuracy:.2f}%")
+            all_preds.extend(predicted.cpu().numpy())
+            all_labels.extend(labels.cpu().numpy())
+
+    # 7. Print Metrics
+    print("\n--- Classification Report ---")
+    print(classification_report(all_labels, all_preds, target_names=class_names))
+
+    print("\n--- Confusion Matrix ---")
+    print(confusion_matrix(all_labels, all_preds))
 
 if __name__ == "__main__":
     evaluate_model()
