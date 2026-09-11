@@ -130,7 +130,7 @@ st.markdown(
 )
 
 # ---------------------------------------------------------
-# MODEL LOADER
+# MODEL LOADER (Using your existing 3-Class .pth)
 # ---------------------------------------------------------
 @st.cache_resource
 def load_potato_classifier():
@@ -140,9 +140,20 @@ def load_potato_classifier():
         nn.Dropout(p=0.3, inplace=True),
         nn.Linear(model.last_channel, 3)
     )
-    model_path = r"C:\Users\User\OneDrive\Desktop\edge-ai-coprocessor\models\weights\potato_model_3class.pth"
+    
+    # Robust relative path lookup for your weights file
+    model_path = os.path.join("models", "weights", "potato_model_3class.pth")
+    
     if os.path.exists(model_path):
         model.load_state_dict(torch.load(model_path, map_location=device))
+    else:
+        # Fallback absolute path check just in case
+        alt_path = r"C:\Users\User\OneDrive\Desktop\edge-ai-coprocessor\models\weights\potato_model_3class.pth"
+        if os.path.exists(alt_path):
+            model.load_state_dict(torch.load(alt_path, map_location=device))
+        else:
+            st.error(f"⚠️ Weights file not found! Please check that 'potato_model_3class.pth' is inside 'models/weights/'.")
+            
     model.eval()
     return model, device
 
@@ -156,33 +167,20 @@ inference_transform = transforms.Compose([
 ])
 
 # ---------------------------------------------------------
-# AUTOMATED PRODUCTION GATEKEEPER (Pre-Inference Check)
+# AUTOMATED GATEKEEPER (Pre-Inference Check)
 # ---------------------------------------------------------
 def validate_optical_frame(image_pil):
-    """
-    Production-grade HSV Botanical Masker:
-    Converts the image to HSV space and checks if a genuine percentage 
-    of pixels fall within natural foliage color bounds (avoiding graphic design flyers).
-    """
-    # Resize for fast pre-filtering
-    img_rgb = image_pil.resize((128, 128)).convert("RGB")
     img_hsv = image_pil.convert("HSV")
-    
     hsv_np = np.array(img_hsv)
-    h = hsv_np[:, :, 0] # Hue
-    s = hsv_np[:, :, 1] # Saturation
-    v = hsv_np[:, :, 2] # Value/Brightness
+    h = hsv_np[:, :, 0]
+    s = hsv_np[:, :, 1]
+    v = hsv_np[:, :, 2]
 
-    # Natural plant foliage in PIL HSV space (Hue roughly 35 to 85 out of 255)
-    # Must also have adequate saturation and not be pure white/black background
     foliage_mask = (h >= 30) & (h <= 90) & (s > 40) & (v > 30)
-    
     foliage_pixel_ratio = np.sum(foliage_mask) / foliage_mask.size
-    
-    # Require at least 15% of the image to contain true botanical green clusters
     is_valid_leaf = foliage_pixel_ratio > 0.15
     
-    return is_valid_leaf, foliage_pixel_ratio, 0.0
+    return is_valid_leaf, foliage_pixel_ratio
 
 def execute_coprocessor_inference(image_pil):
     resized_img = image_pil.resize((128, 128))
@@ -217,22 +215,17 @@ def execute_coprocessor_inference(image_pil):
 # ---------------------------------------------------------
 with st.sidebar:
     st.markdown("### ⚙️ Hardware Interface")
-    st.caption("Target Coprocessor Configuration")
-
     target_if = st.selectbox("Bus Topology", ["UART Serial", "SPI Bus", "TCP/IP Socket"])
     com_port = st.text_input("Port Address", value="/dev/ttyUSB0")
     baud_rate = st.selectbox("Baud Rate", [115200, 921600, 57600], index=0)
 
     st.divider()
-
     st.markdown("### 💎 Target Accelerator Specs")
     st.markdown("""
     **Device:** Altera Cyclone II / DE2-270  
     **Architecture:** Quantized INT8 CNN Engine  
     **Clock Frequency:** 50.0 MHz  
-    **On-Chip Memory:** M4K Memory Blocks  
     """)
-
     st.divider()
     st.caption("FPGA Status: **ONLINE & READY**")
 
@@ -279,8 +272,7 @@ with col_right:
         st.markdown("##### 🛰️ Coprocessor Diagnostics & Inference")
 
         if uploaded_file:
-            # Run automated hardware-style pre-check gate
-            is_valid, g_ratio, t_var = validate_optical_frame(image)
+            is_valid, g_ratio = validate_optical_frame(image)
 
             if not is_valid:
                 st.markdown(
@@ -288,7 +280,7 @@ with col_right:
                     unsafe_allow_html=True,
                 )
                 st.write("")
-                st.warning("⚠️ **Pipeline Halted by Gatekeeper:** The uploaded frame failed organic foliage validation (insufficient green spectrum density or texture variation). Please upload a valid potato leaf sample.")
+                st.warning("⚠️ **Pipeline Halted by Gatekeeper:** The uploaded frame failed organic foliage validation. Please upload a valid potato leaf sample.")
             else:
                 st.caption("✓ Optical Frame Captured & Verified")
 
@@ -315,7 +307,7 @@ with col_right:
                                 <div class="hw-metric-label">Model Confidence</div>
                                 <div class="hw-metric-value">{res['confidence'] * 100:.1f}%</div>
                             </div>
-                            <div class="hw-metrics-card">
+                            <div class="hw-metric-card">
                                 <div class="hw-metric-label">Roundtrip Latency</div>
                                 <div class="hw-metric-value">{res['latency_ms']:.1f} ms</div>
                             </div>
