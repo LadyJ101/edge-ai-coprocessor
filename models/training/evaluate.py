@@ -10,7 +10,8 @@ import numpy as np
 def evaluate_model():
     # Exact absolute paths
     data_dir = r"C:\Users\User\OneDrive\Desktop\edge-ai-coprocessor\models\training\datasets\Potato"
-    model_path = r"C:\Users\User\OneDrive\Desktop\edge-ai-coprocessor\models\weights\potato_model_3class.pth"
+    # UPDATED: Expecting the new 2-class trained weights
+    model_path = r"C:\Users\User\OneDrive\Desktop\edge-ai-coprocessor\models\weights\potato_model_2class.pth"
 
     if not os.path.exists(data_dir):
         print(f"Error: Dataset path not found at: {data_dir}")
@@ -26,10 +27,16 @@ def evaluate_model():
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ])
 
-    # 2. Load dataset (automatically detects 3 classes: diseased_potato, healthy_potato, non_potato)
+    # 2. Load dataset 
+    # NOTE: Ensure you only have 2 subfolders here (e.g., 'Diseased' and 'Healthy')
     dataset = datasets.ImageFolder(root=data_dir, transform=transform)
     class_names = dataset.classes
     print(f"Detected Classes: {class_names}")
+
+    # FPGA ALIGNMENT CHECK
+    if len(class_names) != 2:
+        print("Error: The dataset must contain exactly 2 classes to match the FPGA binary logic.")
+        return
 
     # 3. Same train/test split seed used during training
     torch.manual_seed(42)
@@ -38,12 +45,12 @@ def evaluate_model():
     _, test_dataset = random_split(dataset, [train_size, test_size])
     test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
 
-    # 4. Re-initialize MobileNetV2 3-class architecture
+    # 4. Re-initialize MobileNetV2 2-class architecture
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = models.mobilenet_v2(weights=None)
     model.classifier[1] = nn.Sequential(
         nn.Dropout(p=0.3, inplace=True),
-        nn.Linear(model.last_channel, len(class_names))
+        nn.Linear(model.last_channel, 2) # STRICTLY SET TO 2 CLASSES
     )
 
     # 5. Load the trained weights
