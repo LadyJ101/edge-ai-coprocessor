@@ -1,7 +1,7 @@
 // Description: Dual-Port M4K RAM for storing incoming image features
 
 module feature_ram #(
-    parameter ADDR_WIDTH = 9,
+    parameter ADDR_WIDTH = 10,
     parameter DATA_WIDTH = 8
 )(
     input wire clk,
