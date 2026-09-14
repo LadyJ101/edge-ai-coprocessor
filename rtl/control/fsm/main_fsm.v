@@ -20,9 +20,9 @@ module main_fsm (
     output reg tx_start,         
     output reg [7:0] tx_data,    
     
-    // NEW: Interface to Feature RAM (Write Port)
+    // Interface to Feature RAM (Write Port) - 10 Bits for 864 Features
     output reg ram_write_en,
-    output reg [8:0] ram_write_addr,
+    output reg [9:0] ram_write_addr,
     output reg signed [7:0] ram_write_data
 );
 
@@ -40,14 +40,14 @@ module main_fsm (
     localparam CMD_LOAD_FEATURE    = 8'h02;
 
     // Internal Registers for RAM Loading
-    reg [8:0] next_ram_addr; // Keeps track of where we are in memory
+    reg [9:0] next_ram_addr; // Keeps track of where we are in memory (10 bits)
     reg [7:0] latched_feature_2; // Holds the 2nd feature while the 1st is saving
 
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             current_state <= STATE_IDLE;
-            ram_write_addr <= 9'd0;
+            ram_write_addr <= 10'd0; // UPDATED to 10 bits
             latched_feature_2 <= 8'd0;
         end else begin
             current_state <= next_state;
@@ -56,7 +56,7 @@ module main_fsm (
             if (current_state == STATE_TX) begin
                 // Reset RAM address pointer when inference finishes
                 // so the next image starts loading at address 0
-                ram_write_addr <= 9'd0; 
+                ram_write_addr <= 10'd0; // UPDATED to 10 bits
             end else if (current_state == STATE_LOAD_1 || current_state == STATE_LOAD_2) begin
                 // Move to the next memory slot after every write
                 ram_write_addr <= next_ram_addr;
