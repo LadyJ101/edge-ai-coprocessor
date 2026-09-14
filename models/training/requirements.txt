@@ -1,7 +1,7 @@
-streamlit
-torch
-torchvision
-Pillow
-numpy
-pyserial
-scikit-learn
+streamlit==1.32.0
+torch==2.3.0
+torchvision==0.18.0
+Pillow==10.2.0
+numpy==1.26.4
+pyserial==3.5
+scikit-learn==1.4.2
