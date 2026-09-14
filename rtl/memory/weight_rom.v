@@ -1,7 +1,7 @@
 // Description: M4K ROM for INT8 Model Weights initialized via .mif
 
 module weight_rom #(
-    parameter ADDR_WIDTH = 9,                
+    parameter ADDR_WIDTH = 10,                
     parameter DATA_WIDTH = 8,               
     parameter MIF_FILE = "conv1_weights.mif" 
 )(
