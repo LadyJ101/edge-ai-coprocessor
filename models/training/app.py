@@ -140,17 +140,17 @@ def load_potato_classifier():
     model = models.mobilenet_v2(weights=None)
     model.classifier[1] = nn.Sequential(
         nn.Dropout(p=0.3, inplace=True),
-        nn.Linear(model.last_channel, 3)
+        nn.Linear(model.last_channel, 2) # UPDATED: STRICTLY 2 CLASSES
     )
     
     # Robust relative path lookup for your weights file
-    model_path = os.path.join("models", "weights", "potato_model_3class.pth")
+    model_path = os.path.join("models", "weights", "potato_model_2class.pth") # UPDATED
     
     if os.path.exists(model_path):
         model.load_state_dict(torch.load(model_path, map_location=device))
     else:
         # Fallback absolute path check just in case
-        alt_path = r"C:\Users\User\OneDrive\Desktop\edge-ai-coprocessor\models\weights\potato_model_3class.pth"
+        alt_path = r"C:\Users\User\OneDrive\Desktop\edge-ai-coprocessor\models\weights\potato_model_2class.pth" # UPDATED
         if os.path.exists(alt_path):
             model.load_state_dict(torch.load(alt_path, map_location=device))
         else:
@@ -196,10 +196,10 @@ def execute_coprocessor_inference(image_pil, com_port, baud_rate):
         # Pull raw features from the model
         raw_features = potato_model.features(input_tensor).flatten()
         
-    # 2. INT8 Quantization: Ensure exactly 432 features bounded between -128 and +127
+    # 2. INT8 Quantization: Ensure exactly 864 features bounded between -128 and +127
     features_int8 = []
-    for i in range(432):
-        # We loop through 432 times to fulfill the hardware contract. 
+    for i in range(864): # UPDATED: Loop 864 times
+        # We loop through 864 times to fulfill the hardware contract. 
         # (This uses intermediate layer data and scales it to INT8)
         val = float(raw_features[i % len(raw_features)]) * 127.0
         quantized_val = max(min(int(val), 127), -128)
@@ -214,7 +214,7 @@ def execute_coprocessor_inference(image_pil, com_port, baud_rate):
         ser = serial.Serial(com_port, int(baud_rate), timeout=2.0)
         
         # Phase 1: Send the 0x02 Data Packets
-        for i in range(0, 432, 2):
+        for i in range(0, 864, 2): # UPDATED: Loop up to 864
             feat_a = features_int8[i]
             feat_b = features_int8[i+1]
             
@@ -247,7 +247,7 @@ def execute_coprocessor_inference(image_pil, com_port, baud_rate):
         # HARDWARE BYPASS: If no FPGA is plugged in, simulate the hardware response for UI testing
         st.warning(f"Hardware Link Offline. Using Simulation Bypass: {e}")
         time.sleep(0.15) # Simulate UART transmission delay
-        packets_sent = 216
+        packets_sent = 432 # UPDATED: 432 packets for 864 features
         # Dummy logic: If the sum of features is positive, it's healthy
         fpga_result = 1 if np.sum(features_int8) > 0 else 0
 
@@ -266,7 +266,7 @@ def execute_coprocessor_inference(image_pil, com_port, baud_rate):
         "class_name": display_name,
         "confidence": 0.99, # FPGAs are completely deterministic 
         "latency_ms": latency_ms,
-        "clock_cycles": 1728, # FSM Loading + Execute Cycles
+        "clock_cycles": 3456, # UPDATED: FSM Loading + 864 Execute Cycles
         "payload_kb": (packets_sent * 4) / 1024,
         "power_mw": 142.5,
     }
