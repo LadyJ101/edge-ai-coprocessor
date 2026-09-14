@@ -1,7 +1,8 @@
 import os
 import time
 import struct
-import serial  # Requires: pip install pyserial
+import asyncio
+from bleak import BleakClient # Requires: pip install bleak
 from PIL import Image
 import numpy as np
 import streamlit as st
@@ -9,6 +10,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import models, transforms
+
+# ---------------------------------------------------------
+# BLE UART UUIDs (Standard Nordic UART Service)
+# ---------------------------------------------------------
+UART_SERVICE_UUID = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
+UART_TX_CHAR_UUID = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E" # PC Writes to this
+UART_RX_CHAR_UUID = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E" # PC Reads/Notifies from this
 
 # ---------------------------------------------------------
 # PAGE CONFIGURATION
@@ -140,17 +148,17 @@ def load_potato_classifier():
     model = models.mobilenet_v2(weights=None)
     model.classifier[1] = nn.Sequential(
         nn.Dropout(p=0.3, inplace=True),
-        nn.Linear(model.last_channel, 2) # UPDATED: STRICTLY 2 CLASSES
+        nn.Linear(model.last_channel, 2) # STRICTLY 2 CLASSES
     )
     
     # Robust relative path lookup for your weights file
-    model_path = os.path.join("models", "weights", "potato_model_2class.pth") # UPDATED
+    model_path = os.path.join("models", "weights", "potato_model_2class.pth")
     
     if os.path.exists(model_path):
         model.load_state_dict(torch.load(model_path, map_location=device))
     else:
         # Fallback absolute path check just in case
-        alt_path = r"C:\Users\User\OneDrive\Desktop\edge-ai-coprocessor\models\weights\potato_model_2class.pth" # UPDATED
+        alt_path = r"C:\Users\User\OneDrive\Desktop\edge-ai-coprocessor\models\weights\potato_model_2class.pth"
         if os.path.exists(alt_path):
             model.load_state_dict(torch.load(alt_path, map_location=device))
         else:
@@ -186,21 +194,18 @@ def validate_optical_frame(image_pil):
 # ---------------------------------------------------------
 # HARDWARE-SOFTWARE BRIDGE: COPROCESSOR INFERENCE
 # ---------------------------------------------------------
-def execute_coprocessor_inference(image_pil, com_port, baud_rate):
+def execute_coprocessor_inference(image_pil, ble_address):
     start_time = time.perf_counter()
     
     # 1. Feature Extraction via PyTorch (Frontend processing)
     input_tensor = inference_transform(image_pil).unsqueeze(0).to(model_device)
     
     with torch.no_grad():
-        # Pull raw features from the model
         raw_features = potato_model.features(input_tensor).flatten()
         
     # 2. INT8 Quantization: Ensure exactly 864 features bounded between -128 and +127
     features_int8 = []
-    for i in range(864): # UPDATED: Loop 864 times
-        # We loop through 864 times to fulfill the hardware contract. 
-        # (This uses intermediate layer data and scales it to INT8)
+    for i in range(864): 
         val = float(raw_features[i % len(raw_features)]) * 127.0
         quantized_val = max(min(int(val), 127), -128)
         features_int8.append(quantized_val)
@@ -208,50 +213,64 @@ def execute_coprocessor_inference(image_pil, com_port, baud_rate):
     packets_sent = 0
     fpga_result = None
 
-    # 3. Hardware Transmission (UART)
+    # 3. Build the Byte Payload
+    payload = bytearray()
+    for i in range(0, 864, 2):
+        feat_a = features_int8[i] & 0xFF
+        feat_b = features_int8[i+1] & 0xFF
+        checksum = 0x02 ^ feat_a ^ feat_b
+        payload.extend(struct.pack('4B', 0x02, feat_a, feat_b, checksum))
+        packets_sent += 1
+        
+    # Append the Execution Trigger Packet
+    payload.extend(struct.pack('4B', 0x01, 0x00, 0x00, 0x01))
+
+    # 4. Asynchronous BLE Transmission Logic
+    async def transmit_ble():
+        nonlocal fpga_result
+        
+        def rx_callback(sender, data):
+            """Callback function to handle incoming bytes from the Pico 2W"""
+            nonlocal fpga_result
+            if len(data) >= 1:
+                fpga_result = int.from_bytes(data, byteorder='big')
+        
+        async with BleakClient(ble_address) as client:
+            # Subscribe to the RX characteristic to listen for the FPGA's answer
+            await client.start_notify(UART_RX_CHAR_UUID, rx_callback)
+            
+            # Chunk the payload into 20-byte BLE packets to avoid MTU overflow
+            chunk_size = 20
+            for i in range(0, len(payload), chunk_size):
+                chunk = payload[i:i+chunk_size]
+                # Write without response for maximum speed
+                await client.write_gatt_char(UART_TX_CHAR_UUID, chunk, response=False)
+                await asyncio.sleep(0.005) # Tiny delay to prevent Pico buffer overflow
+                
+            # Wait for the callback to catch the FPGA result (Timeout after 5 seconds)
+            timeout = 5.0
+            start_wait = time.time()
+            while fpga_result is None and (time.time() - start_wait) < timeout:
+                await asyncio.sleep(0.1)
+                
+            await client.stop_notify(UART_RX_CHAR_UUID)
+
+    # 5. Execute Hardware Transmission
     try:
-        # Open serial connection to the FPGA / Pico
-        ser = serial.Serial(com_port, int(baud_rate), timeout=2.0)
+        # Run the async BLE loop synchronously within Streamlit
+        asyncio.run(transmit_ble())
         
-        # Phase 1: Send the 0x02 Data Packets
-        for i in range(0, 864, 2): # UPDATED: Loop up to 864
-            feat_a = features_int8[i]
-            feat_b = features_int8[i+1]
-            
-            # Convert signed int to unsigned byte for bitwise logic
-            byte_a = feat_a & 0xFF
-            byte_b = feat_b & 0xFF
-            
-            # XOR Checksum
-            checksum = 0x02 ^ byte_a ^ byte_b
-            
-            # Pack into 4 bytes (Format: 4 Unsigned Bytes)
-            packet = struct.pack('4B', 0x02, byte_a, byte_b, checksum)
-            ser.write(packet)
-            packets_sent += 1
-            
-        # Phase 2: Send the 0x01 Execution Trigger Packet
-        trigger_packet = struct.pack('4B', 0x01, 0x00, 0x00, 0x01)
-        ser.write(trigger_packet)
-        
-        # Phase 3: Wait for FPGA Response (1 byte)
-        fpga_reply = ser.read(1)
-        ser.close()
-        
-        if fpga_reply:
-            fpga_result = int.from_bytes(fpga_reply, byteorder='big')
-        else:
+        if fpga_result is None:
             fpga_result = -1 # Timeout error
 
     except Exception as e:
-        # HARDWARE BYPASS: If no FPGA is plugged in, simulate the hardware response for UI testing
-        st.warning(f"Hardware Link Offline. Using Simulation Bypass: {e}")
-        time.sleep(0.15) # Simulate UART transmission delay
-        packets_sent = 432 # UPDATED: 432 packets for 864 features
+        # HARDWARE BYPASS: If no Pico 2W is found, simulate the hardware response for UI testing
+        st.warning(f"BLE Link Offline. Using Simulation Bypass: {e}")
+        time.sleep(0.3) # Simulate BLE transmission delay
         # Dummy logic: If the sum of features is positive, it's healthy
         fpga_result = 1 if np.sum(features_int8) > 0 else 0
 
-    # 4. Result Processing
+    # 6. Result Processing
     latency_ms = (time.perf_counter() - start_time) * 1000
     
     if fpga_result == 1:
@@ -266,7 +285,7 @@ def execute_coprocessor_inference(image_pil, com_port, baud_rate):
         "class_name": display_name,
         "confidence": 0.99, # FPGAs are completely deterministic 
         "latency_ms": latency_ms,
-        "clock_cycles": 3456, # UPDATED: FSM Loading + 864 Execute Cycles
+        "clock_cycles": 3456, # FSM Loading + 864 Execute Cycles
         "payload_kb": (packets_sent * 4) / 1024,
         "power_mw": 142.5,
     }
@@ -276,10 +295,11 @@ def execute_coprocessor_inference(image_pil, com_port, baud_rate):
 # ---------------------------------------------------------
 with st.sidebar:
     st.markdown("### ⚙️ Hardware Interface")
-    target_if = st.selectbox("Bus Topology", ["UART Serial", "SPI Bus", "TCP/IP Socket"])
-    com_port = st.text_input("Port Address", value="/dev/ttyUSB0")
-    baud_rate = st.selectbox("Baud Rate", [115200, 921600, 57600], index=0)
-
+    target_if = st.selectbox("Bus Topology", ["Bluetooth Low Energy (BLE)", "UART Serial (Legacy)"])
+    
+    # Updated to request BLE Address instead of COM Port
+    ble_address = st.text_input("BLE MAC Address", value="XX:XX:XX:XX:XX:XX")
+    
     st.divider()
     st.markdown("### 💎 Target Accelerator Specs")
     st.markdown("""
@@ -300,7 +320,7 @@ st.markdown(
         <div class="brand-title">⚡ AgriEdge AI — Hardware Telemetry Engine</div>
         <div class="brand-subtitle">Real-Time Web-to-FPGA Vision Coprocessor Acceleration</div>
     </div>
-    <div class="sys-pill">FPGA LINK ACTIVE • INT8</div>
+    <div class="sys-pill">BLE LINK ACTIVE • INT8</div>
 </div>
 """,
     unsafe_allow_html=True,
@@ -345,9 +365,9 @@ with col_right:
             else:
                 st.caption("✓ Optical Frame Captured & Verified")
 
-                with st.spinner("Streaming byte payload to hardware coprocessor..."):
-                    # Pass the sidebar configuration directly into the inference function
-                    res = execute_coprocessor_inference(image, com_port, baud_rate)
+                with st.spinner("Streaming byte payload to hardware coprocessor via BLE..."):
+                    # Pass the BLE address directly into the inference function
+                    res = execute_coprocessor_inference(image, ble_address)
 
                 pred_name = res["class_name"]
                 
