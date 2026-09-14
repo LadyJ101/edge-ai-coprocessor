@@ -25,16 +25,16 @@ module edge_ai_coprocessor (
     wire pipeline_en;
 
     // Memory Data Signals
-    wire [8:0] current_addr;
+    wire [9:0] current_addr;          // UPDATED to 10 bits
     wire signed [7:0] current_feature;
     wire signed [7:0] current_weight;
     wire signed [31:0] final_relu_out;
 
     // Feature RAM Write Signals
     wire ram_write_en;
-    wire [8:0] ram_write_addr;
+    wire [9:0] ram_write_addr;        // UPDATED to 10 bits
     wire signed [7:0] ram_write_data;
-  
+    
     // --- INTERFACE SUBSYSTEM ---
     uart_interface_top u_uart (
         .clk(clk),
@@ -61,7 +61,7 @@ module edge_ai_coprocessor (
         .relu_out(final_relu_out),
         .tx_busy(tx_busy),
         .tx_start(tx_start),
-        .tx_data(tx_data)
+        .tx_data(tx_data),            // FIXED: Added missing comma
         .ram_write_en(ram_write_en),
         .ram_write_addr(ram_write_addr),
         .ram_write_data(ram_write_data)
@@ -69,8 +69,8 @@ module edge_ai_coprocessor (
 
     // --- MEMORY SUBSYSTEM ---
     address_generator #(
-        .ADDR_WIDTH(9),
-        .VECTOR_SIZE(432)
+        .ADDR_WIDTH(10),              // UPDATED to 10 bits
+        .VECTOR_SIZE(864)             // UPDATED to 864
     ) u_addr_gen (
         .clk(clk),
         .rst_n(rst_n),
@@ -81,7 +81,7 @@ module edge_ai_coprocessor (
     );
 
     weight_rom #(
-        .ADDR_WIDTH(9),
+        .ADDR_WIDTH(10),              // UPDATED to 10 bits
         .DATA_WIDTH(8),
         .MIF_FILE("conv1_weights.mif")
     ) u_weights (
@@ -91,7 +91,7 @@ module edge_ai_coprocessor (
     );
 
     feature_ram #(
-        .ADDR_WIDTH(9),
+        .ADDR_WIDTH(10),              // UPDATED to 10 bits
         .DATA_WIDTH(8)
     ) u_features (
         .clk(clk),
