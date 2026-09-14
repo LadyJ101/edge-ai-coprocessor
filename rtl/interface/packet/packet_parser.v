@@ -8,7 +8,8 @@ module packet_parser (
     output reg packet_ready       // Pulses high when a full 32-bit frame is verified
 );
 
-    localparam HEADER_BYTE = 8'hAA; // Start of Frame marker
+    localparam LABEL_START = 8'h01;
+    localparam LABEL_LOAD  = 8'h02;
 
     reg [1:0] byte_count;
     reg [23:0] shift_reg;         // Holds the first 3 bytes while waiting for checksum
@@ -25,7 +26,8 @@ module packet_parser (
             if (rx_ready) begin
                 case (byte_count)
                     2'd0: begin
-                        if (rx_byte == HEADER_BYTE) begin
+                        // UPDATED: Only start parsing if the byte is a valid label
+                        if (rx_byte == LABEL_START || rx_byte == LABEL_LOAD) begin
                             shift_reg[23:16] <= rx_byte;
                             byte_count <= 2'd1;
                         end
