@@ -3,5 +3,5 @@ torch==2.3.0
 torchvision==0.18.0
 Pillow==10.2.0
 numpy==1.26.4
-pyserial==3.5
 scikit-learn==1.4.2
+bleak==0.21.1
