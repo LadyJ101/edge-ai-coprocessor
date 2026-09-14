@@ -1,6 +1,7 @@
 streamlit
 torch
 torchvision
-pillow
+Pillow
 numpy
 pyserial
+scikit-learn
