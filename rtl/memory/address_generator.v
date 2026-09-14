@@ -1,8 +1,8 @@
 // Description: Counter to generate read addresses for ROM and RAM
 
 module address_generator #(
-    parameter ADDR_WIDTH = 9,
-    parameter VECTOR_SIZE = 432 
+    parameter ADDR_WIDTH = 10,
+    parameter VECTOR_SIZE = 864
 )(
     input wire clk,
     input wire rst_n,
